@@ -172,3 +172,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# RSI Bot specific
+watchlists.json
+*.tdms
+
+# VSCode settings (optional, if you're using it)
+.vscode/
