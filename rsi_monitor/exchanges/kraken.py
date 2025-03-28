@@ -1,29 +1,51 @@
 import requests
-import time
 
-BASE_URL = "https://api.kraken.com/0/public/OHLC"
+def get_klines(symbol, interval, limit=100):
+    # Normalize symbol for Kraken
+    symbol_map = {
+        "BTCUSDT": "XBTUSDT",
+        "BTCUSD": "XBTUSD",
+        "ETHUSD": "ETHUSD",
+        "ETHUSDT": "ETHUSDT",
+        "XRPUSDT": "XRPUSDT",
+    }
+    kraken_symbol = symbol_map.get(symbol.upper(), symbol.upper())
 
-INTERVAL_MAP = {
-    "1m": 1, "5m": 5, "15m": 15, "1h": 60
-}
+    interval_map = {
+        "1m": 1,
+        "5m": 5,
+        "15m": 15,
+        "30m": 30,
+        "1h": 60,
+        "4h": 240,
+        "1d": 1440
+    }
+    kraken_interval = interval_map.get(interval, 5)
 
-def get_klines(symbol: str, interval: str, limit: int = 100):
-    kraken_symbol = symbol.replace("USDT", "USD").upper()  # Basic conversion
-    interval_minutes = INTERVAL_MAP.get(interval)
-    if interval_minutes is None:
-        raise ValueError(f"Unsupported interval for Kraken: {interval}")
-
+    url = "https://api.kraken.com/0/public/OHLC"
     params = {
         "pair": kraken_symbol,
-        "interval": interval_minutes
+        "interval": kraken_interval,
+        "since": 0  # you may adjust for real-time start
     }
-    response = requests.get(BASE_URL, params=params)
-    response.raise_for_status()
+
+    response = requests.get(url, params=params)
     data = response.json()
 
-    # Format: [[time, open, high, low, close, vwap, volume, count], ...]
-    pair_key = list(data['result'].keys())[0]
-    candles = data['result'][pair_key]
+    # Handle known Kraken errors
+    if "error" in data and data["error"]:
+        print(f"[KRAKEN ERROR] {kraken_symbol} ({interval}): {data['error']}")
+        return []
 
-    # Kraken returns oldest first
-    return [[float(c[0]), float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[6])] for c in candles[-limit:]]
+    if "result" not in data:
+        print(f"[KRAKEN] Unexpected response for {kraken_symbol}: {data}")
+        return []
+
+    # Kraken returns result as {pair_name: [[...], [...]]}
+    # Extract the first value inside the result
+    try:
+        ohlc_data = next(iter(data["result"].values()))
+        return ohlc_data[:limit]
+    except Exception as e:
+        print(f"[KRAKEN PARSE ERROR] {kraken_symbol}: {e}")
+        return []

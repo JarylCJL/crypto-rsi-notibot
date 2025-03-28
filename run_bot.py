@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from telegram.ext import ApplicationBuilder, CommandHandler
 
-from telegram_bot.handlers import start, add_coin, remove_coin, list_watchlist, get_rsi, help_command
+from telegram_bot.handlers import start, add_coin, remove_coin, list_watchlist, get_rsi, help_command, list_symbols, list_intervals
 from telegram_bot.alert_loop import rsi_alert_loop
 from telegram_bot.state import load_watchlists
 
@@ -25,6 +25,8 @@ async def bootstrap():
     app.add_handler(CommandHandler("watchlist", list_watchlist))
     app.add_handler(CommandHandler("get", get_rsi))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("symbols", list_symbols))
+    app.add_handler(CommandHandler("intervals", list_intervals))
 
     asyncio.create_task(rsi_alert_loop(app))
     await app.initialize()

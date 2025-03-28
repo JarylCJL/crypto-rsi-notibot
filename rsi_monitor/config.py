@@ -1,3 +1,3 @@
 # config.py
 
-EXCHANGE = "kraken"  # Options: "binance", "kraken"
+EXCHANGE = "binance"  # Options: "binance", "kraken"
