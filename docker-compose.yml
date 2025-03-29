@@ -1,0 +1,8 @@
+version: "3.8"
+
+services:
+  rsi-notibot:
+    build: .
+    container_name: rsi-notibot
+    env_file: .env
+    restart: unless-stopped
