@@ -7,7 +7,7 @@ from telegram_bot.handlers import start, add_coin, remove_coin, list_watchlist, 
 from telegram_bot.alert_loop import rsi_alert_loop
 from telegram_bot.state import load_watchlists
 
-load_dotenv()
+load_dotenv(dotenv_path="./private/.env")
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 # print("Loaded TOKEN:", BOT_TOKEN)
 

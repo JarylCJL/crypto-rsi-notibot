@@ -4,5 +4,5 @@ services:
   rsi-notibot:
     build: .
     container_name: rsi-notibot
-    env_file: .env
+    env_file: ./private/.env
     restart: unless-stopped
