@@ -1,20 +1,7 @@
 from collections import defaultdict
 from rsi_monitor.exchange_api import get_klines
 from rsi_monitor.rsi_calculator import calculate_rsi
-
-# RSI thresholds to monitor
-RSI_THRESHOLDS = [
-    (70, 'above'), (30, 'below'),
-    (75, 'above'), (25, 'below'),
-    (80, 'above'), (20, 'below')
-]
-
-# Standard intervals (label → Binance/Kraken key)
-INTERVALS = {
-    '5m': '5m',
-    '15m': '15m',
-    '1h': '1h'
-}
+from rsi_monitor.config import INTERVALS, RSI_THRESHOLDS
 
 class RSIMonitor:
     def __init__(self, symbols):

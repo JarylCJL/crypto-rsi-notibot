@@ -2,10 +2,10 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from telegram_bot.state import user_watchlists, save_watchlists
 from rsi_monitor.monitor import INTERVALS, RSIMonitor
-from rsi_monitor.utils import VALID_BASE_SYMBOLS, normalize_symbol, is_valid_symbol
+from rsi_monitor.config import SUPPORTED_SYMBOLS, normalize_symbol, is_valid_symbol
 
-ALL_SYMBOLS = [normalize_symbol(sym) for sym in VALID_BASE_SYMBOLS]
-
+ALL_SYMBOLS = [normalize_symbol(sym) for sym in SUPPORTED_SYMBOLS]
+# ALL_SYMBOLS = SUPPORTED_SYMBOLS
 
 STANDARD_INTERVALS = list(INTERVALS.values())
 
@@ -144,7 +144,7 @@ async def get_rsi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Error: {e}")
 
 async def list_symbols(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lines = [f"- {sym}" for sym in sorted(VALID_BASE_SYMBOLS)]
+    lines = [f"- {sym}" for sym in sorted(SUPPORTED_SYMBOLS)]
     await update.message.reply_text("📜 Available symbols:\n" + "\n".join(lines))
 
 async def list_intervals(update: Update, context: ContextTypes.DEFAULT_TYPE):
