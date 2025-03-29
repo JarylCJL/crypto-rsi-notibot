@@ -1,26 +1,25 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from telegram_bot.state import user_watchlists, save_watchlists
-from rsi_monitor.monitor import INTERVALS, RSIMonitor
-from rsi_monitor.config import SUPPORTED_SYMBOLS, normalize_symbol, is_valid_symbol
-
-ALL_SYMBOLS = [normalize_symbol(sym) for sym in SUPPORTED_SYMBOLS]
-# ALL_SYMBOLS = SUPPORTED_SYMBOLS
+from telegram_bot.state import (
+    get_watchlists, add_to_watchlist, remove_from_watchlist
+)
+from rsi_monitor.config import INTERVALS, normalize_symbol, is_valid_symbol
+from rsi_monitor.monitor import RSIMonitor
 
 STANDARD_INTERVALS = list(INTERVALS.values())
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Welcome to the RSI Alert Bot!\n\n"
         "Commands:\n"
-        "/add <symbol> <interval> – Start monitoring (e.g. /add btc 5m)\n"
-        "/remove <symbol> <interval> – Stop monitoring\n"
-        "/add all all – Monitor all pairs & timeframes\n"
+        "/add <symbol> <interval> – Add RSI monitoring (e.g. /add btc 5m)\n"
+        "/remove <symbol> <interval> – Remove a pair\n"
         "/watchlist – View your current alerts\n"
         "/get <symbol> <interval> – Check current RSI\n"
         "/symbols – List supported coins\n"
         "/intervals – List available timeframes\n"
-        "/help – Show full command guide"
+        "/help – Show all available commands"
     )
 
 
@@ -29,11 +28,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📖 *RSI Bot Help*\n\n"
         "/add <symbol> <interval> — Start monitoring (e.g. /add btc 5m)\n"
         "/remove <symbol> <interval> — Stop monitoring\n"
-        "/add all all — Monitor all pairs & timeframes\n"
+        "/add all <interval> — Add available coins\n"
+        "/remove <symbol> all — Remove all intervals for symbol\n"
         "/watchlist — Show all your active alerts\n"
         "/get <symbol> <interval> — Get current RSI\n"
-        "/symbols — List supported coins\n"
-        "/intervals — List available timeframes\n"
+        "/symbols — List all supported coins\n"
+        "/intervals — List all available timeframes\n"
         "/help — Show this message",
         parse_mode="Markdown"
     )
@@ -44,88 +44,92 @@ async def add_coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
 
     if len(args) != 2:
-        return await update.message.reply_text("Usage: /add <symbol|all> <interval|all>")
+        return await update.message.reply_text("Usage: /add <symbol> <interval>")
 
-    symbol_arg, interval_arg = args[0].lower(), args[1].lower()
-    symbols = ALL_SYMBOLS if symbol_arg == "all" else [normalize_symbol(symbol_arg)]
-    intervals = STANDARD_INTERVALS if interval_arg == "all" else [interval_arg]
+    symbol_input, interval = args[0].lower(), args[1].lower()
+    user_watchlists = get_watchlists()
 
-    # Validate intervals
-    invalid_intervals = [i for i in intervals if i not in STANDARD_INTERVALS]
-    if invalid_intervals:
-        return await update.message.reply_text(f"⚠️ Invalid intervals: {', '.join(invalid_intervals)}")
+    added = []
 
-    # Validate symbols
-    invalid_symbols = [s for s in symbols if not is_valid_symbol(s)]
-    if invalid_symbols:
-        return await update.message.reply_text(f"❌ Unknown symbols: {', '.join(invalid_symbols)}")
+    def try_add(sym, intv):
+        pair = (normalize_symbol(sym), intv)
+        if pair not in user_watchlists.get(user_id, set()):
+            add_to_watchlist(user_id, pair)
+            added.append(pair)
 
-    # Add to watchlist
-    user_watchlists.setdefault(user_id, set())
-    new_alerts = 0
+    if symbol_input == "all" and interval == "all":
+        for sym in ["BTC", "ETH", "BNB", "SOL", "XRP", "DOGE", "ADA", "DOT", "SUI"]:
+            for intv in STANDARD_INTERVALS:
+                try_add(sym, intv)
 
-    for symbol in symbols:
-        for interval in intervals:
-            pair = (symbol, interval)
-            if pair not in user_watchlists[user_id]:
-                user_watchlists[user_id].add(pair)
-                new_alerts += 1
+    elif symbol_input == "all":
+        if interval not in STANDARD_INTERVALS:
+            return await update.message.reply_text("⚠️ Invalid interval.")
+        for sym in ["BTC", "ETH", "BNB", "SOL", "XRP", "DOGE", "ADA", "DOT", "SUI"]:
+            try_add(sym, interval)
 
-    save_watchlists()
-    await update.message.reply_text(f"✅ Added {new_alerts} new alerts.")
+    elif interval == "all":
+        for intv in STANDARD_INTERVALS:
+            try_add(symbol_input, intv)
+
+    else:
+        if interval not in STANDARD_INTERVALS:
+            return await update.message.reply_text("⚠️ Invalid interval.")
+        try_add(symbol_input, interval)
+
+    await update.message.reply_text(f"✅ Added {len(added)} new alerts.")
+
 
 async def remove_coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     args = context.args
 
     if len(args) != 2:
-        return await update.message.reply_text("Usage: /remove <symbol|all> <interval|all>")
+        return await update.message.reply_text("Usage: /remove <symbol> <interval>")
 
-    symbol_arg, interval_arg = args[0].lower(), args[1].lower()
-    symbols = ALL_SYMBOLS if symbol_arg == "all" else [normalize_symbol(symbol_arg)]
-    intervals = STANDARD_INTERVALS if interval_arg == "all" else [interval_arg]
+    symbol_input, interval = args[0].lower(), args[1].lower()
+    symbol = normalize_symbol(symbol_input)
+    current = get_watchlists().get(user_id, set())
 
-    # Validate intervals
-    invalid_intervals = [i for i in intervals if i not in STANDARD_INTERVALS]
-    if invalid_intervals:
-        return await update.message.reply_text(f"⚠️ Invalid intervals: {', '.join(invalid_intervals)}")
+    removed = []
 
-    # Validate symbols
-    invalid_symbols = [s for s in symbols if not is_valid_symbol(s)]
-    if invalid_symbols:
-        return await update.message.reply_text(f"❌ Unknown symbols: {', '.join(invalid_symbols)}")
-
-    current = user_watchlists.get(user_id, set())
-    to_remove = {(s, i) for s in symbols for i in intervals}
-
-    removed = current & to_remove
-    if removed:
-        user_watchlists[user_id] -= removed
-        save_watchlists()
-        lines = [f"- {s} ({i})" for s, i in sorted(removed)]
-        return await update.message.reply_text(f"🗑 Removed:\n" + "\n".join(lines))
+    if symbol_input == "all" and interval == "all":
+        removed = list(current)
+    elif symbol_input == "all":
+        removed = [pair for pair in current if pair[1] == interval]
+    elif interval == "all":
+        removed = [pair for pair in current if pair[0] == symbol]
     else:
-        return await update.message.reply_text("⚠️ None of those alerts were in your watchlist.")
+        pair = (symbol, interval)
+        if pair in current:
+            removed = [pair]
+
+    for pair in removed:
+        remove_from_watchlist(user_id, pair)
+
+    if removed:
+        await update.message.reply_text(f"🗑 Removed {len(removed)} alert(s).")
+    else:
+        await update.message.reply_text("Nothing to remove.")
+
 
 async def list_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    items = user_watchlists.get(user_id, set())
+    items = get_watchlists().get(user_id, set())
     if not items:
         await update.message.reply_text("📭 Your watchlist is empty.")
     else:
         lines = [f"- {sym} ({intv})" for sym, intv in sorted(items)]
         await update.message.reply_text("📈 Your current alerts:\n" + "\n".join(lines))
 
+
 async def get_rsi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if len(args) != 2:
         return await update.message.reply_text("Usage: /get <symbol> <interval>")
 
-    symbol_input, interval = args[0], args[1].lower()
-    symbol = normalize_symbol(symbol_input)
-
-    if not is_valid_symbol(symbol):
-        return await update.message.reply_text(f"❌ Unknown symbol: {symbol_input.upper()}")
+    symbol = normalize_symbol(args[0])
+    interval = args[1].lower()
 
     if interval not in STANDARD_INTERVALS:
         return await update.message.reply_text("⚠️ Invalid interval.")
@@ -143,11 +147,11 @@ async def get_rsi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"⚠️ Error: {e}")
 
+
 async def list_symbols(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lines = [f"- {sym}" for sym in sorted(SUPPORTED_SYMBOLS)]
-    await update.message.reply_text("📜 Available symbols:\n" + "\n".join(lines))
+    coins = ["BTC", "ETH", "BNB", "SOL", "XRP", "DOGE", "ADA", "DOT", "SUI"]
+    await update.message.reply_text("📊 Available symbols:\n" + "\n".join(f"- {c}" for c in coins))
+
 
 async def list_intervals(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "⏱ Available intervals:\n" + "\n".join(f"- {i}" for i in STANDARD_INTERVALS)
-    )
+    await update.message.reply_text("⏱ Available intervals:\n" + "\n".join(f"- {i}" for i in STANDARD_INTERVALS))
