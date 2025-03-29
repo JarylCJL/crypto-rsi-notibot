@@ -1,18 +1,18 @@
-# Use official lightweight Python image
-FROM python:3.12-slim
+# Use Python 3.10 slim image
+FROM python:3.10-slim
 
-# Set working directory inside the container
+# Set work directory
 WORKDIR /app
 
-# Copy required files into container
-COPY . /app
-
 # Install dependencies
-RUN pip install --upgrade pip \
- && pip install -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port (if needed, not used for Telegram bot)
-# EXPOSE 8000
+# Copy the rest of the app
+COPY . .
 
-# Default command
+# Set timezone (optional, useful for consistent logs)
+ENV TZ=Asia/Singapore
+
+# Entrypoint
 CMD ["python", "run_bot.py"]

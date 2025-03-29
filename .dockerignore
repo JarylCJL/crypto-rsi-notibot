@@ -1,7 +1,16 @@
+# Prevent secret files from being baked into the image
+.env
+private/
+
+# Ignore virtual environments and Python cache
+.venv/
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+
+# IDE / OS / misc
 *.log
-.env
-watchlists.json
-.venv/
+.DS_Store
+.vscode/
+*.swp

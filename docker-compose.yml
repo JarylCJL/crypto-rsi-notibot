@@ -1,8 +1,11 @@
-version: "3.8"
+version: "3.9"
 
 services:
   rsi-notibot:
     build: .
     container_name: rsi-notibot
-    env_file: ./private/.env
+    env_file:
+      - ./private/.env
+    volumes:
+      - ./private:/app/private
     restart: unless-stopped
