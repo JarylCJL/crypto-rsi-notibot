@@ -34,4 +34,4 @@ async def rsi_alert_loop(app):
                     sent_alerts[key] = True
             except Exception as e:
                 print(f"[Polling Error] {e}")
-        await asyncio.sleep(60)
+        await asyncio.sleep(10)
